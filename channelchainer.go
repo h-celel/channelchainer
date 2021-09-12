@@ -11,8 +11,8 @@ type ChannelChainer struct {
 	processors []weightedProcessor
 }
 
-func NewChannelChainer(baseOptions Options) *ChannelChainer {
-	return &ChannelChainer{options: baseOptions}
+func NewChannelChainer(baseOptions Options) ChannelChainer {
+	return ChannelChainer{options: baseOptions}
 }
 
 type Options struct {
@@ -84,9 +84,9 @@ func (c ChannelChainer) Run(ctx context.Context, in <-chan interface{}, out chan
 
 func (c ChannelChainer) RunAsync(ctx context.Context, in <-chan interface{}, out chan<- interface{}) <-chan error {
 	err := make(chan error, 1)
-	go func() {
+	go func(ctx context.Context, in <-chan interface{}, out chan<- interface{}, err chan<- error) {
 		err <- c.Run(ctx, in, out)
-	}()
+	}(ctx, in, out, err)
 
 	return err
 }
@@ -140,6 +140,9 @@ func (c ChannelChainer) generateDefaultProcessor(p ProcessFunc) Processor {
 			case v, ok := <-in:
 				if !ok {
 					return nil
+				}
+				if skipNil && v == nil {
+					continue
 				}
 				v, err := p(ctx, v)
 				if err != nil {
